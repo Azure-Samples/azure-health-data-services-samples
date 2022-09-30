@@ -1,0 +1,1062 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.9.1.41621",
+      "templateHash": "2972414861180715626"
+    }
+  },
+  "parameters": {
+    "resourcePrefix": {
+      "type": "string",
+      "defaultValue": "fhirdl",
+      "metadata": {
+        "description": "Prefex for your resources. It must be 2-6 characters and only be letters."
+      },
+      "maxLength": 6,
+      "minLength": 2
+    },
+    "resourceLocation": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "Location for your resources."
+      }
+    }
+  },
+  "variables": {
+    "resourceTags": {
+      "AHDS-Sample": "Databricks-Delta-Lake"
+    },
+    "uniqueNameString": "[uniqueString(guid(resourceGroup().id), parameters('resourceLocation'))]",
+    "name": "[format('{0}{1}', parameters('resourcePrefix'), variables('uniqueNameString'))]",
+    "databricksWorkspaceName": "[format('{0}-dbws', variables('name'))]",
+    "managedResourceGroupName": "[format('databricks-rg-{0}-{1}', variables('databricksWorkspaceName'), uniqueString(variables('databricksWorkspaceName'), resourceGroup().id))]",
+    "managedIdentityName": "[format('{0}-identity', variables('name'))]",
+    "ahdsWorkspaceName": "[format('{0}0ahds', variables('name'))]",
+    "fhirName": "databricks-delta-test",
+    "fhirUrl": "[format('https://{0}-{1}.fhir.azurehealthcareapis.com', variables('ahdsWorkspaceName'), variables('fhirName'))]",
+    "datalakeName": "[format('{0}0lake', variables('name'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "ManagedIdentity",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "managedIdentityName": {
+            "value": "[variables('managedIdentityName')]"
+          },
+          "location": {
+            "value": "[parameters('resourceLocation')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "14879526342839490377"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "managedIdentityName": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "ownerRoleDefId": "8e3af657-a8ff-443c-a75c-2fe8c4bcb635"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2018-11-30",
+              "name": "[parameters('managedIdentityName')]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-08-01-preview",
+              "name": "[guid(variables('ownerRoleDefId'), resourceGroup().id)]",
+              "properties": {
+                "principalType": "ServicePrincipal",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))).principalId]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('ownerRoleDefId'))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "identityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))]"
+            },
+            "identityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))).clientId]"
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', parameters('managedIdentityName'))).principalId]"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "description": "Creates the managed identity needed for deployment screpts"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "[format('databricks-workspace-{0}', variables('databricksWorkspaceName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "workspaceName": {
+            "value": "[variables('databricksWorkspaceName')]"
+          },
+          "location": {
+            "value": "[parameters('resourceLocation')]"
+          },
+          "tier": {
+            "value": "premium"
+          },
+          "tags": {
+            "value": "[variables('resourceTags')]"
+          },
+          "managedResourceGroupId": {
+            "value": "[subscriptionResourceId('Microsoft.Resources/resourceGroups', variables('managedResourceGroupName'))]"
+          },
+          "identity": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ManagedIdentity')).outputs.identityId.value]"
+          },
+          "storageName": {
+            "value": "[variables('datalakeName')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "14285179489315820270"
+            }
+          },
+          "parameters": {
+            "workspaceName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Databricks workspace"
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for Azure Databricks workspack"
+              }
+            },
+            "tier": {
+              "type": "string",
+              "metadata": {
+                "description": "Tier for the Azure Databricks Service. Premium is required for Delta Live Tables."
+              },
+              "allowedValues": [
+                "premium"
+              ]
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {},
+              "metadata": {
+                "description": "Resource tag for databricks"
+              }
+            },
+            "managedResourceGroupId": {
+              "type": "string",
+              "metadata": {
+                "description": "ID of the resource group for Databricks managed resources."
+              }
+            },
+            "force_update": {
+              "type": "string",
+              "defaultValue": "[utcNow()]"
+            },
+            "identity": {
+              "type": "string"
+            },
+            "adb_pat_lifetime": {
+              "type": "string",
+              "defaultValue": "3600"
+            },
+            "adb_secret_scope_name": {
+              "type": "string",
+              "defaultValue": "sample-secrets"
+            },
+            "adb_cluster_name": {
+              "type": "string",
+              "defaultValue": "test-cluster-01"
+            },
+            "adb_spark_version": {
+              "type": "string",
+              "defaultValue": "7.3.x-scala2.12"
+            },
+            "adb_node_type": {
+              "type": "string",
+              "defaultValue": "Standard_D3_v2"
+            },
+            "adb_num_worker": {
+              "type": "string",
+              "defaultValue": "3"
+            },
+            "adb_auto_terminate_min": {
+              "type": "string",
+              "defaultValue": "30"
+            },
+            "storageName": {
+              "type": "secureString"
+            },
+            "storageContainerName": {
+              "type": "string",
+              "defaultValue": "fhir"
+            }
+          },
+          "variables": {
+            "$fxv#0": "{\n    \"name\": \"Azure Health Data Services FHIR to Databricks Delta Lake Sample\",\n    \"storage\": \"/Shared/data\",\n    \"clusters\": [\n      {\n        \"label\": \"default\",\n        \"autoscale\": {\n          \"min_workers\": 1,\n          \"max_workers\": 5\n        }\n      }\n    ],\n    \"libraries\": [\n      {\n        \"notebook\": {\n          \"path\": \"/Shared/FHIR-To-Databricks-Delta.py\"\n        }\n      }\n    ],\n    \"target\": \"fhir\",\n    \"continuous\": false\n}",
+            "$fxv#1": "#/bin/bash -e\n\n## Install databricks CLI and refresh environment\npip install databricks-cli\neval \"$(exec /usr/bin/env -i \"${SHELL}\" -l -c \"export\")\"\n\n## Setup auth\necho \"Geting access tokens for accessing resources...\"\n\ndatabricksResourceToken=$(az account get-access-token --resource 2ff814a6-3304-4ab8-85cb-cd0e6f879c1d --output json | jq -r .accessToken)\nazureManagementToken=$(az account get-access-token --resource https://management.core.windows.net/ --output json | jq -r .accessToken)\n\ntoken_response=$(\n    curl -sS -X POST \\\n        -H \"Authorization: Bearer $databricksResourceToken\" \\\n        -H \"Content-Type: application/json\" \\\n        -H \"X-Databricks-Azure-SP-Management-Token:$azureManagementToken\" \\\n        -H \"X-Databricks-Azure-Workspace-Resource-Id:$ADB_WORKSPACE_ID\" \\\n        --data '{\"lifetime_seconds\": 180, \"comment\": \"Deployment Token\"}' \\\n        \"https://${ADB_WORKSPACE_URL}/api/2.0/token/create\"\n)\n\nexport DATABRICKS_TOKEN=`echo $token_response | jq -r '.token_value'`\nexport DATABRICKS_HOST=\"https://${ADB_WORKSPACE_URL}\"\n\n## Setup secret scope\nEXISTING_SCOPE_COUNT=$(databricks secrets list-scopes | grep -c $SECRET_SCOPE_NAME)\nif [ \"$EXISTING_SCOPE_COUNT\" -eq \"0\" ]; then\n    databricks secrets create-scope --scope $SECRET_SCOPE_NAME\n    printf \"\\nSecret scope $SECRET_SCOPE_NAME created.\"\nelse\n    printf \"\\nSecret scope $SECRET_SCOPE_NAME already exists.\"\nfi\n\n## Setup secrets\ndatabricks secrets put --scope $SECRET_SCOPE_NAME --key \"adls-storage-account-name\" --string-value \"$STORAGE_ACCOUNT_NAME\" >> $AZ_SCRIPTS_OUTPUT_PATH\nprintf \"\\n Secret adls-storage-account-name created\"\ndatabricks secrets put --scope $SECRET_SCOPE_NAME --key \"adls-storage-container-name\" --string-value \"$STORAGE_CONTAINER_NAME\" >> $AZ_SCRIPTS_OUTPUT_PATH\nprintf \"\\n Secret adls-storage-container-name created\"\n\nSTORAGE_ACCOUNT_KEY=$(az storage account keys list --resource-group \"$RESOURCE_GROUP_NAME\" --account-name \"$STORAGE_ACCOUNT_NAME\" --query \"[0].value\" --output tsv)\ndatabricks secrets put --scope $SECRET_SCOPE_NAME --key \"adls-access-account-key\" --string-value \"$STORAGE_ACCOUNT_KEY\" >> $AZ_SCRIPTS_OUTPUT_PATH\nprintf \"\\n Secret adls-access-client-id created\"\n\nprintf \"\\nStaging notebooks...\"\nmkdir -p notebooks && cd notebooks\ncurl -L \\\n    -O \"https://mikaeldevcdn.blob.core.windows.net/public/FHIR-To-Databricks-Delta.py\"\ncd -\n\nprintf \"\\nUploading notebooks...\"\nfor notebook in notebooks/*.py; do\n    filename=$(basename $notebook)\n    databricks workspace import --language \"PYTHON\" --format \"SOURCE\" --overwrite $notebook \"/Shared/${filename}\" >> $AZ_SCRIPTS_OUTPUT_PATH\n    printf \"\\n Uploaded notebook $notebook\"\ndone\n\n\nprintf \"\\Setting up pipeline...\"\n\nEXISTING_PIPELINE_COUNT=$(databricks pipelines list | grep -c \"Databricks Delta Lake Sample\")\nif [ \"$EXISTING_PIPELINE_COUNT\" -eq \"0\" ]; then\n    echo $PIPELINE_TEMPLATE > pipeline.json\n    databricks pipelines create --settings pipeline.json\nelse\n    PIPELINE_ID=$(databricks pipelines list | jq -r '.[] | select( .name | contains(\"Databricks Delta Lake Sample\")) | .pipeline_id')\n    echo $PIPELINE_TEMPLATE | jq --arg pipeline_id $PIPELINE_ID '{id: $pipeline_id} + .' > pipeline.json\n    databricks pipelines edit --settings pipeline.json\nfi"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Databricks/workspaces",
+              "apiVersion": "2022-04-01-preview",
+              "name": "[parameters('workspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('tier')]"
+              },
+              "properties": {
+                "managedResourceGroupId": "[parameters('managedResourceGroupId')]",
+                "publicNetworkAccess": "Enabled"
+              }
+            },
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2020-10-01",
+              "name": "testDatabricks",
+              "location": "[parameters('location')]",
+              "kind": "AzureCLI",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('identity'))]": {}
+                }
+              },
+              "properties": {
+                "azCliVersion": "2.26.0",
+                "timeout": "PT5M",
+                "cleanupPreference": "OnExpiration",
+                "retentionInterval": "PT1H",
+                "environmentVariables": [
+                  {
+                    "name": "ADB_WORKSPACE_URL",
+                    "value": "[reference(resourceId('Microsoft.Databricks/workspaces', parameters('workspaceName'))).workspaceUrl]"
+                  },
+                  {
+                    "name": "ADB_WORKSPACE_ID",
+                    "value": "[resourceId('Microsoft.Databricks/workspaces', parameters('workspaceName'))]"
+                  },
+                  {
+                    "name": "SECRET_SCOPE_NAME",
+                    "value": "[parameters('adb_secret_scope_name')]"
+                  },
+                  {
+                    "name": "STORAGE_ACCOUNT_NAME",
+                    "value": "[parameters('storageName')]"
+                  },
+                  {
+                    "name": "RESOURCE_GROUP_NAME",
+                    "value": "[resourceGroup().name]"
+                  },
+                  {
+                    "name": "STORAGE_CONTAINER_NAME",
+                    "value": "[parameters('storageContainerName')]"
+                  },
+                  {
+                    "name": "PIPELINE_TEMPLATE",
+                    "value": "[variables('$fxv#0')]"
+                  }
+                ],
+                "scriptContent": "[variables('$fxv#1')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Databricks/workspaces', parameters('workspaceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "databricksWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Databricks/workspaces', parameters('workspaceName'))]"
+            },
+            "databricksWorkspaceUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Databricks/workspaces', parameters('workspaceName'))).workspaceUrl]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('datalake-{0}', variables('datalakeName')))]",
+        "[resourceId('Microsoft.Resources/deployments', 'ManagedIdentity')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "[format('ahds-with-fhir-{0}', variables('ahdsWorkspaceName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "workspaceName": {
+            "value": "[variables('ahdsWorkspaceName')]"
+          },
+          "fhirServiceName": {
+            "value": "[variables('fhirName')]"
+          },
+          "tenantId": {
+            "value": "[subscription().tenantId]"
+          },
+          "location": {
+            "value": "[parameters('resourceLocation')]"
+          },
+          "tags": {
+            "value": "[variables('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "3690419099582015418"
+            }
+          },
+          "parameters": {
+            "workspaceName": {
+              "type": "string"
+            },
+            "fhirServiceName": {
+              "type": "string"
+            },
+            "tenantId": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
+            }
+          },
+          "variables": {
+            "loginURL": "[environment().authentication.loginEndpoint]",
+            "authority": "[format('{0}{1}', variables('loginURL'), parameters('tenantId'))]",
+            "audience": "[format('https://{0}-{1}.fhir.azurehealthcareapis.com', parameters('workspaceName'), parameters('fhirServiceName'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.HealthcareApis/workspaces",
+              "apiVersion": "2021-06-01-preview",
+              "name": "[parameters('workspaceName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.HealthcareApis/workspaces/fhirservices",
+              "apiVersion": "2021-06-01-preview",
+              "name": "[format('{0}/{1}', parameters('workspaceName'), parameters('fhirServiceName'))]",
+              "location": "[parameters('location')]",
+              "kind": "fhir-R4",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "properties": {
+                "authenticationConfiguration": {
+                  "authority": "[variables('authority')]",
+                  "audience": "[variables('audience')]",
+                  "smartProxyEnabled": false
+                }
+              },
+              "tags": "[parameters('tags')]",
+              "dependsOn": [
+                "[resourceId('Microsoft.HealthcareApis/workspaces', parameters('workspaceName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "fhirId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.HealthcareApis/workspaces/fhirservices', split(format('{0}/{1}', parameters('workspaceName'), parameters('fhirServiceName')), '/')[0], split(format('{0}/{1}', parameters('workspaceName'), parameters('fhirServiceName')), '/')[1])]"
+            },
+            "fhirServiceUrl": {
+              "type": "string",
+              "value": "[format('https://{0}-{1}.fhir.azurehealthcareapis.com', parameters('workspaceName'), parameters('fhirServiceName'))]"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "description": "Deploys Azure Health Data Services and FHIR Service"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "[format('load-synthea-{0}', variables('ahdsWorkspaceName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "fhirUrl": {
+            "value": "[variables('fhirUrl')]"
+          },
+          "location": {
+            "value": "[parameters('resourceLocation')]"
+          },
+          "identity": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ManagedIdentity')).outputs.identityId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "4802976208277291139"
+            }
+          },
+          "parameters": {
+            "fhirUrl": {
+              "type": "string"
+            },
+            "location": {
+              "type": "string"
+            },
+            "identity": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "$fxv#0": "#/bin/bash -e\n\ncd $HOME\n\n# Install dotnet\napk add bash icu-libs krb5-libs libgcc libintl libssl1.1 libstdc++ zlib\napk add libgdiplus --repository https://dl-3.alpinelinux.org/alpine/edge/testing/ --allow-untrusted\nwget https://dot.net/v1/dotnet-install.sh\nchmod +x dotnet-install.sh\nbash dotnet-install.sh\n\nexport PATH=\"$PATH:/root/.dotnet\"\n\n#bash dotnet-install.sh --runtime dotnet --version 6.0.4\n\n# Get FHIR Loader CLI\nwget https://github.com/microsoft/fhir-loader/releases/download/v1.0.0/FhirLoader.Tool.0.9.0.nupkg\n\n# Unpack FHIR Loader CLI\nunzip FhirLoader.Tool.0.9.0.nupkg\n\n# Load Data\ndotnet tools/net6.0/any/FhirLoader.Tool.dll --blob \"https://ahdssampledata.blob.core.windows.net/fhir/synthea-ndjson-100/\" --fhir \"$FHIR_URL\""
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Resources/deploymentScripts",
+              "apiVersion": "2020-10-01",
+              "name": "loadSyntheaData",
+              "location": "[parameters('location')]",
+              "kind": "AzureCLI",
+              "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', parameters('identity'))]": {}
+                }
+              },
+              "properties": {
+                "azCliVersion": "2.26.0",
+                "timeout": "PT15M",
+                "cleanupPreference": "OnExpiration",
+                "retentionInterval": "PT1H",
+                "environmentVariables": [
+                  {
+                    "name": "FHIR_URL",
+                    "value": "[parameters('fhirUrl')]"
+                  }
+                ],
+                "scriptContent": "[variables('$fxv#0')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ahds-with-fhir-{0}', variables('ahdsWorkspaceName')))]",
+        "[resourceId('Microsoft.Resources/deployments', 'ManagedIdentity')]"
+      ],
+      "metadata": {
+        "description": "Deploys Azure Health Data Services and FHIR Service"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "[format('datalake-{0}', variables('datalakeName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('datalakeName')]"
+          },
+          "location": {
+            "value": "[parameters('resourceLocation')]"
+          },
+          "tags": {
+            "value": "[variables('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "18288335809534079945"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "metadata": {
+                "description": "Azure Storage ADLS Gen 2 accout name"
+              }
+            },
+            "location": {
+              "type": "string"
+            },
+            "storageAccountType": {
+              "type": "string",
+              "defaultValue": "Standard_LRS",
+              "allowedValues": [
+                "Standard_LRS",
+                "Standard_GRS",
+                "Standard_RAGRS"
+              ],
+              "metadata": {
+                "description": "Storage Account type"
+              }
+            },
+            "containerName": {
+              "type": "string",
+              "defaultValue": "fhir",
+              "metadata": {
+                "description": "The name of the container to store job and data."
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2021-09-01",
+              "name": "[parameters('name')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "[parameters('storageAccountType')]"
+              },
+              "properties": {
+                "isHnsEnabled": true,
+                "supportsHttpsTrafficOnly": true
+              },
+              "kind": "StorageV2",
+              "metadata": {
+                "description": "Storage account for our datalake sink of FHIR data."
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2021-09-01",
+              "name": "[format('{0}/default/{1}', parameters('name'), parameters('containerName'))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "storage_account_name": {
+              "type": "string",
+              "value": "[parameters('name')]"
+            },
+            "storage_account_id": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Storage/storageAccounts', parameters('name'))]"
+            }
+          }
+        }
+      },
+      "metadata": {
+        "description": "Deploys an Azure Data Lake Gen 2 for data pipeline"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "[format('fhirtoanalyticsfunction-{0}', variables('name'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "name": {
+            "value": "[variables('name')]"
+          },
+          "location": {
+            "value": "[parameters('resourceLocation')]"
+          },
+          "fhirServiceUrl": {
+            "value": "[variables('fhirUrl')]"
+          },
+          "storageAccountName": {
+            "value": "[variables('datalakeName')]"
+          },
+          "tags": {
+            "value": "[variables('resourceTags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "6434079370667253513"
+            }
+          },
+          "parameters": {
+            "name": {
+              "type": "string",
+              "maxLength": 24,
+              "minLength": 3,
+              "metadata": {
+                "description": "Name prefix for all resources."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location to deploy resources."
+              }
+            },
+            "fhirServiceUrl": {
+              "type": "string",
+              "metadata": {
+                "description": "The FHIR Service endpoint to export data from."
+              }
+            },
+            "storageAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Name of the Azure Datalake Storage Gen 2 Storage Account"
+              }
+            },
+            "tags": {
+              "type": "object",
+              "defaultValue": {}
+            },
+            "fhirVersion": {
+              "type": "string",
+              "defaultValue": "R4",
+              "allowedValues": [
+                "R4"
+              ]
+            },
+            "dataStart": {
+              "type": "string",
+              "defaultValue": "1970-01-01 00:00:00 +00:00",
+              "metadata": {
+                "description": "Start timestamp of the data range you want to export."
+              }
+            },
+            "dataEnd": {
+              "type": "string",
+              "defaultValue": "",
+              "metadata": {
+                "description": "End timestamp of the data range you want to export. Will continuous export all data if not specified."
+              }
+            },
+            "containerName": {
+              "type": "string",
+              "defaultValue": "fhir",
+              "metadata": {
+                "description": "The name of the container to store job and data."
+              }
+            },
+            "packageUrl": {
+              "type": "string",
+              "defaultValue": "https://fhiranalyticspipeline.blob.core.windows.net/builds/Microsoft.Health.Fhir.Synapse.FunctionApp.zip",
+              "metadata": {
+                "description": "The fhir-to-synapse pipeline package url."
+              }
+            }
+          },
+          "variables": {
+            "hostingPlanName": "[format('{0}-host', parameters('name'))]",
+            "functionAppName": "[format('{0}-fa', parameters('name'))]",
+            "appInsightsName": "[format('{0}-ai', parameters('name'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Web/serverfarms",
+              "apiVersion": "2022-03-01",
+              "name": "[variables('hostingPlanName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "tier": "ElasticPremium",
+                "name": "EP3"
+              },
+              "properties": {
+                "elasticScaleEnabled": true
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites",
+              "apiVersion": "2022-03-01",
+              "name": "[variables('functionAppName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "identity": {
+                "type": "SystemAssigned"
+              },
+              "kind": "functionapp",
+              "properties": {
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]",
+                "siteConfig": {
+                  "use32BitWorkerProcess": false
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', variables('hostingPlanName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Web/sites/config",
+              "apiVersion": "2020-12-01",
+              "name": "[format('{0}/{1}', variables('functionAppName'), 'appsettings')]",
+              "properties": {
+                "AzureWebJobsStorage": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value)]",
+                "WEBSITE_CONTENTAZUREFILECONNECTIONSTRING": "[format('DefaultEndpointsProtocol=https;AccountName={0};EndpointSuffix={1};AccountKey={2}', parameters('storageAccountName'), environment().suffixes.storage, listKeys(resourceId('Microsoft.Storage/storageAccounts', parameters('storageAccountName')), '2019-06-01').keys[0].value)]",
+                "WEBSITE_CONTENTSHARE": "[toLower(variables('functionAppName'))]",
+                "FUNCTIONS_EXTENSION_VERSION": "~2",
+                "FUNCTIONS_WORKER_RUNTIME": "dotnet-isolated",
+                "APPINSIGHTS_INSTRUMENTATIONKEY": "[reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey]",
+                "APPLICATIONINSIGHTS_CONNECTION_STRING": "[format('InstrumentationKey={0}', reference(resourceId('Microsoft.Insights/components', variables('appInsightsName'))).InstrumentationKey)]",
+                "job__containerName": "[parameters('containerName')]",
+                "job__startTime": "[parameters('dataStart')]",
+                "job__endTime": "[parameters('dataEnd')]",
+                "filter__filterScope": "System",
+                "filter__groupId": "",
+                "filter__requiredTypes": "",
+                "filter__typeFilters": "",
+                "schema__enableCustomizedSchema": "false",
+                "dataLakeStore__storageUrl": "[format('https://{0}.blob.{1}', parameters('storageAccountName'), environment().suffixes.storage)]",
+                "fhirServer__serverUrl": "[parameters('fhirServiceUrl')]",
+                "fhirServer__version": "[parameters('fhirVersion')]",
+                "fhirServer__authentication": "ManagedIdentity"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Insights/components', variables('appInsightsName'))]",
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]"
+              ],
+              "metadata": {
+                "description": "FHIR to Datalake function all settings"
+              }
+            },
+            {
+              "type": "Microsoft.Web/sites/extensions",
+              "apiVersion": "2022-03-01",
+              "name": "[format('{0}/{1}', variables('functionAppName'), 'MSDeploy')]",
+              "properties": {
+                "packageUri": "[parameters('packageUrl')]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', variables('functionAppName'))]",
+                "[resourceId('Microsoft.Web/sites/config', variables('functionAppName'), 'appsettings')]"
+              ],
+              "metadata": {
+                "description": "Deploy the FHIR to Analytics function app code to the function app"
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02-preview",
+              "name": "[variables('appInsightsName')]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              },
+              "tags": "[union(parameters('tags'), createObject(format('hidden-link:{0}', resourceId('Microsoft.Web/sites', variables('appInsightsName'))), 'Resource'))]",
+              "metadata": {
+                "description": "Monitoring for Function App"
+              }
+            }
+          ],
+          "outputs": {
+            "functionAppName": {
+              "type": "string",
+              "value": "[variables('functionAppName')]"
+            },
+            "functionAppPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName')), '2022-03-01', 'full').identity.principalId]"
+            },
+            "hostName": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Web/sites', variables('functionAppName'))).defaultHostName]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('databricks-workspace-{0}', variables('databricksWorkspaceName')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('datalake-{0}', variables('datalakeName')))]"
+      ],
+      "metadata": {
+        "description": "Deploys FHIR to Analytics function."
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "fhirIdentity-function",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "resourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ahds-with-fhir-{0}', variables('ahdsWorkspaceName')))).outputs.fhirId.value]"
+          },
+          "roleId": {
+            "value": "5a1fc7df-4bf1-4951-a576-89034ee01acd"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('fhirtoanalyticsfunction-{0}', variables('name')))).outputs.functionAppPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "9148056260549200273"
+            }
+          },
+          "parameters": {
+            "resourceId": {
+              "type": "string"
+            },
+            "roleId": {
+              "type": "string"
+            },
+            "principalId": {
+              "type": "string"
+            },
+            "principalType": {
+              "type": "string",
+              "defaultValue": "ServicePrincipal"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(parameters('resourceId'), parameters('principalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleId')))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "[parameters('principalType')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('fhirtoanalyticsfunction-{0}', variables('name')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('ahds-with-fhir-{0}', variables('ahdsWorkspaceName')))]"
+      ],
+      "metadata": {
+        "description": "Setup identity connection between FHIR and the function app"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "fhirIdentity-deployment",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "resourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('ahds-with-fhir-{0}', variables('ahdsWorkspaceName')))).outputs.fhirId.value]"
+          },
+          "roleId": {
+            "value": "5a1fc7df-4bf1-4951-a576-89034ee01acd"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', 'ManagedIdentity')).outputs.identityPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "9148056260549200273"
+            }
+          },
+          "parameters": {
+            "resourceId": {
+              "type": "string"
+            },
+            "roleId": {
+              "type": "string"
+            },
+            "principalId": {
+              "type": "string"
+            },
+            "principalType": {
+              "type": "string",
+              "defaultValue": "ServicePrincipal"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(parameters('resourceId'), parameters('principalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleId')))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "[parameters('principalType')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('ahds-with-fhir-{0}', variables('ahdsWorkspaceName')))]",
+        "[resourceId('Microsoft.Resources/deployments', 'ManagedIdentity')]"
+      ],
+      "metadata": {
+        "description": "Setup identity connection between FHIR and the function app"
+      }
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2020-10-01",
+      "name": "storageIdentity-function",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "resourceId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('datalake-{0}', variables('datalakeName')))).outputs.storage_account_id.value]"
+          },
+          "roleId": {
+            "value": "ba92f5b4-2d11-453d-a403-e96b0029c9fe"
+          },
+          "principalId": {
+            "value": "[reference(resourceId('Microsoft.Resources/deployments', format('fhirtoanalyticsfunction-{0}', variables('name')))).outputs.functionAppPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.9.1.41621",
+              "templateHash": "9148056260549200273"
+            }
+          },
+          "parameters": {
+            "resourceId": {
+              "type": "string"
+            },
+            "roleId": {
+              "type": "string"
+            },
+            "principalId": {
+              "type": "string"
+            },
+            "principalType": {
+              "type": "string",
+              "defaultValue": "ServicePrincipal"
+            }
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2020-04-01-preview",
+              "name": "[guid(parameters('resourceId'), parameters('principalId'), subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleId')))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', parameters('roleId'))]",
+                "principalId": "[parameters('principalId')]",
+                "principalType": "[parameters('principalType')]"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Resources/deployments', format('fhirtoanalyticsfunction-{0}', variables('name')))]",
+        "[resourceId('Microsoft.Resources/deployments', format('datalake-{0}', variables('datalakeName')))]"
+      ],
+      "metadata": {
+        "description": "Setup identity connection between FHIR and the function app"
+      }
+    }
+  ]
+}

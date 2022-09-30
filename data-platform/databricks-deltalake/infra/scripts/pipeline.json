@@ -1,0 +1,22 @@
+{
+    "name": "Azure Health Data Services FHIR to Databricks Delta Lake Sample",
+    "storage": "/Shared/data",
+    "clusters": [
+      {
+        "label": "default",
+        "autoscale": {
+          "min_workers": 1,
+          "max_workers": 5
+        }
+      }
+    ],
+    "libraries": [
+      {
+        "notebook": {
+          "path": "/Shared/FHIR-To-Databricks-Delta.py"
+        }
+      }
+    ],
+    "target": "fhir",
+    "continuous": false
+}

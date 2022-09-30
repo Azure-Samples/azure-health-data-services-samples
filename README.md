@@ -1,57 +1,9 @@
-# Project Name
+# Azure Health Data Services Samples
 
-(short, 1-3 sentenced, description of the project)
+*Work in progress*
 
-## Features
+Samples showing common uses cases for Azure Health Data Services ([FHIR Service](https://docs.microsoft.com/azure/healthcare-apis/fhir/overview), [DICOM Service](https://docs.microsoft.com/azure/healthcare-apis/dicom/dicom-services-overview), and [MedTech Service](https://docs.microsoft.com/en-us/azure/healthcare-apis/iot/)).
 
-This project framework provides the following features:
-
-* Feature 1
-* Feature 2
-* ...
-
-## Getting Started
-
-### Prerequisites
-
-(ideally very short, if any)
-
-- OS
-- Library version
-- ...
-
-### Installation
-
-(ideally very short)
-
-- npm install [package name]
-- mvn install
-- ...
-
-### Quickstart
-(Add steps to get up and running quickly)
-
-1. git clone [repository clone url]
-2. cd [repository name]
-3. ...
-
-
-## Demo
-
-A demo app is included to show how to use the project.
-
-To run the demo, follow these steps:
-
-(Add steps to start up the demo)
-
-1.
-2.
-3.
-
-## Resources
-
-(Any additional resources or related projects)
-
-- Link to supporting information
-- Link to similar sample
-- ...
+| Sample | Description |
+| --- | --- |
+| [FHIR Delta Lake with Databricks](./data-platform/databricks-deltalake/) | End-to-end sample showing data from FHIR Service into Databricks Delta Lake Bronze, Silver, and Gold Levels. |
